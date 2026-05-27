@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EstateIQ — House Price Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0c10;
+    --surface:   #111318;
+    --card:      #161a22;
+    --border:    #232838;
+    --gold:      #d4a853;
+    --gold-dim:  #a07830;
+    --gold-glow: rgba(212,168,83,0.15);
+    --text:      #e8e4dc;
+    --muted:     #6b7080;
+    --accent:    #4fc3f7;
+    --green:     #4caf7d;
+    --red:       #e05c5c;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Noise texture overlay ─── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ─── Header ─── */
+  header {
+    position: relative; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.5rem 3rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,12,16,0.8);
+    backdrop-filter: blur(20px);
+  }
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem; font-weight: 900;
+    color: var(--gold);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--text); font-weight: 400; }
+  .badge {
+    font-size: 0.7rem; font-weight: 600;
+    background: var(--gold-glow); color: var(--gold);
+    border: 1px solid var(--gold-dim);
+    padding: 0.3rem 0.8rem; border-radius: 20px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+  }
+
+  /* ─── Hero ─── */
+  .hero {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 5rem 2rem 3rem;
+  }
+  .hero-eyebrow {
+    font-size: 0.75rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 1.2rem;
+    display: flex; align-items: center; justify-content: center; gap: 0.8rem;
+  }
+  .hero-eyebrow::before, .hero-eyebrow::after {
+    content: ''; flex: 0 0 40px; height: 1px; background: var(--gold-dim);
+  }
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900; line-height: 1.1;
+    margin-bottom: 1.2rem;
+    background: linear-gradient(135deg, #e8e4dc 30%, var(--gold) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero p {
+    color: var(--muted); font-size: 1.05rem; max-width: 520px;
+    margin: 0 auto 2rem; line-height: 1.7;
+  }
+  .model-stats {
+    display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem; font-weight: 700; color: var(--gold);
+    display: block;
+  }
+  .stat-label {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin-top: 0.2rem;
+  }
+
+  /* ─── Main layout ─── */
+  .main {
+    position: relative; z-index: 1;
+    max-width: 1200px; margin: 0 auto;
+    padding: 2rem 2rem 5rem;
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 2rem;
+  }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+  /* ─── Card ─── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2.2rem;
+    position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+  }
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem; font-weight: 700;
+    color: var(--gold); margin-bottom: 0.4rem;
+  }
+  .card-sub {
+    font-size: 0.8rem; color: var(--muted);
+    margin-bottom: 2rem; letter-spacing: 0.3px;
+  }
+
+  /* ─── Form grid ─── */
+  .form-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .form-group.full { grid-column: 1 / -1; }
+  label {
+    font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .input-wrap { position: relative; }
+  .input-wrap .icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 1rem; pointer-events: none; opacity: 0.5;
+  }
+  input[type=number], input[type=range], select {
+    width: 100%; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem; padding: 0.75rem 0.9rem 0.75rem 2.4rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none; -webkit-appearance: none;
+  }
+  select { cursor: pointer; padding-left: 2.4rem; }
+  input[type=number]:focus, select:focus {
+    outline: none;
+    border-color: var(--gold-dim);
+    box-shadow: 0 0 0 3px var(--gold-glow);
+  }
+  /* range slider */
+  .range-wrap { display: flex; flex-direction: column; gap: 0.4rem; }
+  .range-row { display: flex; align-items: center; gap: 1rem; }
+  input[type=range] {
+    flex: 1; padding: 0; height: 4px; border-radius: 2px;
+    border: none; cursor: pointer;
+    background: linear-gradient(to right, var(--gold) 0%, var(--gold) var(--pct, 50%), var(--border) var(--pct, 50%), var(--border) 100%);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--gold); border: 2px solid var(--bg);
+    box-shadow: 0 0 6px var(--gold-glow);
+    cursor: pointer;
+  }
+  .range-val {
+    min-width: 28px; text-align: right;
+    font-weight: 600; color: var(--gold); font-size: 0.9rem;
+  }
+  .range-labels {
+    display: flex; justify-content: space-between;
+    font-size: 0.68rem; color: var(--muted);
+  }
+
+  /* ─── Predict button ─── */
+  .btn-predict {
+    width: 100%; margin-top: 1.8rem;
+    padding: 1rem; border: none; border-radius: 12px;
+    background: linear-gradient(135deg, var(--gold) 0%, #b8863a 100%);
+    color: #0a0c10; font-family: 'DM Sans', sans-serif;
+    font-size: 1rem; font-weight: 700; letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .btn-predict::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.12);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .btn-predict:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(212,168,83,0.4); }
+  .btn-predict:hover::after { opacity: 1; }
+  .btn-predict:active { transform: translateY(0); }
+  .btn-predict:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-predict .spinner {
+    display: none; width: 18px; height: 18px;
+    border: 2px solid rgba(10,12,16,0.3); border-top-color: #0a0c10;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    margin: 0 auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── Right panel ─── */
+  .right-panel { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  /* ─── Result card ─── */
+  .result-card {
+    display: none;
+    animation: slideUp 0.4s ease;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .result-card.show { display: block; }
+  .price-main {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.8rem; font-weight: 900;
+    color: var(--gold); line-height: 1;
+    margin: 0.5rem 0;
+  }
+  .price-range {
+    font-size: 0.85rem; color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+  .price-range span { color: var(--text); font-weight: 500; }
+
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem;
+  }
+  .metric-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .metric-value { font-size: 1.2rem; font-weight: 700; color: var(--text); margin-top: 0.3rem; }
+  .metric-value.green { color: var(--green); }
+
+  /* ─── Feature importance ─── */
+  .fi-title {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); margin-bottom: 1rem; font-weight: 600;
+  }
+  .fi-bar { margin-bottom: 0.8rem; }
+  .fi-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+  .fi-name { font-size: 0.8rem; text-transform: capitalize; color: var(--text); }
+  .fi-pct  { font-size: 0.75rem; color: var(--gold); font-weight: 600; }
+  .fi-track {
+    height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+  }
+  .fi-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--gold), var(--accent));
+    transition: width 0.6s ease;
+  }
+
+  /* ─── Model info card ─── */
+  .info-list { display: flex; flex-direction: column; gap: 0.8rem; }
+  .info-item { display: flex; justify-content: space-between; align-items: center; }
+  .info-key { font-size: 0.8rem; color: var(--muted); }
+  .info-val { font-size: 0.85rem; font-weight: 600; color: var(--text); text-align: right; max-width: 55%; }
+
+  /* ─── Error ─── */
+  .error-msg {
+    display: none; background: rgba(224,92,92,0.1);
+    border: 1px solid var(--red); border-radius: 10px;
+    padding: 1rem; color: var(--red); font-size: 0.85rem;
+  }
+  .error-msg.show { display: block; }
+
+  /* ─── Divider ─── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 1.4rem 0; }
+
+  /* ─── Decorative background circles ─── */
+  .bg-orb {
+    position: fixed; border-radius: 50%;
+    filter: blur(80px); pointer-events: none; z-index: 0;
+  }
+  .orb1 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(212,168,83,0.06), transparent 70%);
+    top: -100px; right: -100px;
+  }
+  .orb2 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(79,195,247,0.05), transparent 70%);
+    bottom: 0; left: -100px;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-orb orb1"></div>
+<div class="bg-orb orb2"></div>
+
+<header>
+  <div class="logo">Estate<span>IQ</span></div>
+  <div class="badge">ML Powered</div>
+</header>
+
+<section class="hero">
+  <div class="hero-eyebrow">Gradient Boosting Regressor</div>
+  <h1>Predict Property Value<br>with Precision</h1>
+  <p>Enter your property details below. Our model — trained on 1,500+ listings with advanced feature engineering — delivers accurate price estimates instantly.</p>
+  <div class="model-stats" id="heroStats">
+    <div class="stat"><span class="stat-value" id="statR2">—</span><div class="stat-label">Model R² Score</div></div>
+    <div class="stat"><span class="stat-value">300</span><div class="stat-label">Estimators</div></div>
+    <div class="stat"><span class="stat-value">12</span><div class="stat-label">Features</div></div>
+    <div class="stat"><span class="stat-value">1,500</span><div class="stat-label">Training Samples</div></div>
+  </div>
+</section>
+
+<div class="main">
+
+  <!-- ── Left: Form ── -->
+  <div>
+    <div class="card">
+      <div class="card-title">Property Details</div>
+      <div class="card-sub">Fill in all fields for the best estimate</div>
+
+      <div class="form-grid">
+
+        <!-- Area -->
+        <div class="form-group full">
+          <label>Total Area (sq ft)</label>
+          <div class="range-wrap">
+            <div class="range-row">
+              <input type="range" id="area" min="500" max="5000" step="50" value="1800" oninput="syncRange(this,'areaNum')">
+              <input type="number" id="areaNum" min="500" max="5000" step="50" value="1800" oninput="syncNum(this,'area')" style="width:90px;padding-left:0.7rem;text-align:center">
+            </div>
+            <div class="range-labels"><span>500</span><span>5,000 sq ft</span></div>
+          </div>
+        </div>
+
+        <!-- Bedrooms -->
+        <div class="form-group">
+          <label>Bedrooms</label>
+          <div class="input-wrap">
+            <span class="icon">🛏</span>
+            <select id="bedrooms">
+              <option value="1">1 Bedroom</option>
+              <option value="2">2 Bedrooms</option>
+              <option value="3" selected>3 Bedrooms</option>
+              <option value="4">4 Bedrooms</option>
+              <option value="5">5 Bedrooms</option>
+              <option value="6">6 Bedrooms</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Bathrooms -->
+        <div class="form-group">
+          <label>Bathrooms</label>
+          <div class="input-wrap">
+            <span class="icon">🚿</span>
+            <select id="bathrooms">
+              <option value="1">1 Bathroom</option>
+              <option value="2" selected>2 Bathrooms</option>
+              <option value="3">3 Bathrooms</option>
+              <option value="4">4 Bathrooms</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Floors -->
+        <div class="form-group">
+          <label>Floors</label>
+          <div class="input-wrap">
+            <span class="icon">🏗</span>
+            <select id="floors">
+              <option value="1" selected>1 Floor</option>
+              <option value="2">2 Floors</option>
+              <option value="3">3 Floors</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Garage -->
+        <div class="form-group">
+          <label>Garage Spaces</label>
+          <div class="input-wrap">
+            <span class="icon">🚗</span>
+            <select id="garage">
+              <option value="0">No Garage</option>
+              <option value="1" selected>1 Car</option>
+              <option value="2">2 Cars</option>
+              <option value="3">3 Cars</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Age -->
+        <div class="form-group full">
+          <label>Property Age (years)</label>
+          <div class="range-wrap">
+            <div class="range-row">
+              <input type="range" id="age" min="0" max="50" step="1" value="10" oninput="syncRange(this,'ageNum')">
+              <input type="number" id="ageNum" min="0" max="50" value="10" oninput="syncNum(this,'age')" style="width:70px;padding-left:0.7rem;text-align:center">
+            </div>
+            <div class="range-labels"><span>New</span><span>50 years</span></div>
+          </div>
+        </div>
+
+        <!-- Location -->
+        <div class="form-group">
+          <label>Location Type</label>
+          <div class="input-wrap">
+            <span class="icon">📍</span>
+            <select id="location">
+              <option value="0">Rural</option>
+              <option value="1">Suburban</option>
+              <option value="2" selected>Town</option>
+              <option value="3">City</option>
+              <option value="4">Prime / Downtown</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Condition -->
+        <div class="form-group">
+          <label>Property Condition</label>
+          <div class="input-wrap">
+            <span class="icon">⭐</span>
+            <select id="condition">
+              <option value="1">1 – Poor</option>
+              <option value="2">2 – Fair</option>
+              <option value="3" selected>3 – Good</option>
+              <option value="4">4 – Very Good</option>
+              <option value="5">5 – Excellent</option>
+            </select>
+          </div>
+        </div>
+
+      </div><!-- /form-grid -->
+
+      <button class="btn-predict" id="predictBtn" onclick="predict()">
+        <span id="btnText">Predict House Price</span>
+        <div class="spinner" id="spinner"></div>
+      </button>
+
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+  </div>
+
+  <!-- ── Right panel ── -->
+  <div class="right-panel">
+
+    <!-- Result -->
+    <div class="card result-card" id="resultCard">
+      <div class="card-title">Estimated Value</div>
+      <div class="price-main" id="priceMain">—</div>
+      <div class="price-range" id="priceRange"></div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Location</div>
+          <div class="metric-value" id="mLocation">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Condition</div>
+          <div class="metric-value" id="mCondition">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Model R²</div>
+          <div class="metric-value green" id="mR2">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Price / sq ft</div>
+          <div class="metric-value" id="mPSF">—</div>
+        </div>
+      </div>
+
+      <div class="fi-title">Top Feature Influence</div>
+      <div id="fiContainer"></div>
+    </div>
+
+    <!-- Model info -->
+    <div class="card" id="modelCard">
+      <div class="card-title">Model Architecture</div>
+      <div class="card-sub">Technical specifications</div>
+      <div class="info-list" id="modelInfo">
+        <div class="info-item"><span class="info-key">Algorithm</span><span class="info-val">Gradient Boosting Regressor</span></div>
+        <div class="info-item"><span class="info-key">Estimators</span><span class="info-val">300</span></div>
+        <div class="info-item"><span class="info-key">Preprocessing</span><span class="info-val">StandardScaler + Feature Eng.</span></div>
+        <div class="info-item"><span class="info-key">Validation</span><span class="info-val">5-Fold Cross Validation</span></div>
+        <div class="info-item"><span class="info-key">Features</span><span class="info-val">12 (incl. engineered)</span></div>
+        <div class="info-item"><span class="info-key">R² Score</span><span class="info-val" id="infoR2">Loading…</span></div>
+      </div>
+    </div>
+
+  </div><!-- /right-panel -->
+</div>
+
+<script>
+// ── Range sync helpers ──────────────────────────────────────────────────────
+function syncRange(slider, numId) {
+  const el = document.getElementById(numId);
+  el.value = slider.value;
+  updateSliderFill(slider);
+}
+function syncNum(input, rangeId) {
+  const el = document.getElementById(rangeId);
+  el.value = input.value;
+  updateSliderFill(el);
+}
+function updateSliderFill(slider) {
+  const min = +slider.min, max = +slider.max, val = +slider.value;
+  const pct = ((val - min) / (max - min)) * 100;
+  slider.style.setProperty('--pct', pct + '%');
+}
+// init fills
+document.querySelectorAll('input[type=range]').forEach(updateSliderFill);
+
+// ── Format currency ──────────────────────────────────────────────────────────
+function fmtCurrency(n) {
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  return '$' + n.toLocaleString('en-US', {maximumFractionDigits: 0});
+}
+
+// ── Load model info on start ─────────────────────────────────────────────────
+async function loadModelInfo() {
+  try {
+    const res  = await fetch('/model-info');
+    const data = await res.json();
+    const r2   = (data.cv_r2_mean * 100).toFixed(1) + '%';
+    document.getElementById('statR2').textContent    = r2;
+    document.getElementById('infoR2').textContent    = r2 + ' ± ' + (data.cv_r2_std * 100).toFixed(1) + '%';
+  } catch(e) {
+    document.getElementById('statR2').textContent = 'N/A';
+  }
+}
+loadModelInfo();
+
+// ── Predict ──────────────────────────────────────────────────────────────────
+async function predict() {
+  const btn     = document.getElementById('predictBtn');
+  const txt     = document.getElementById('btnText');
+  const spin    = document.getElementById('spinner');
+  const errMsg  = document.getElementById('errorMsg');
+
+  // loading state
+  btn.disabled = true;
+  txt.style.display = 'none';
+  spin.style.display = 'block';
+  errMsg.classList.remove('show');
+
+  const payload = {
+    area:      document.getElementById('area').value,
+    bedrooms:  document.getElementById('bedrooms').value,
+    bathrooms: document.getElementById('bathrooms').value,
+    floors:    document.getElementById('floors').value,
+    age:       document.getElementById('age').value,
+    garage:    document.getElementById('garage').value,
+    location:  document.getElementById('location').value,
+    condition: document.getElementById('condition').value,
+  };
+
+  try {
+    const res  = await fetch('/predict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderResult(data, +payload.area);
+  } catch(e) {
+    errMsg.textContent = '⚠ ' + (e.message || 'Prediction failed. Is the Flask server running?');
+    errMsg.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    txt.style.display = 'inline';
+    spin.style.display = 'none';
+  }
+}
+
+// ── Render result ────────────────────────────────────────────────────────────
+function renderResult(data, area) {
+  const card = document.getElementById('resultCard');
+  card.classList.add('show');
+
+  // animate counter
+  animateValue('priceMain', 0, data.predicted_price, 900, fmtCurrency);
+
+  document.getElementById('priceRange').innerHTML =
+    `Estimated range: <span>${fmtCurrency(data.price_range.low)}</span> – <span>${fmtCurrency(data.price_range.high)}</span>`;
+
+  document.getElementById('mLocation').textContent  = data.location_name;
+  document.getElementById('mCondition').textContent = data.condition_name;
+  document.getElementById('mR2').textContent        = data.model_accuracy + '%';
+  document.getElementById('mPSF').textContent       = fmtCurrency(data.predicted_price / area) + '/ft²';
+
+  // also update hero stat
+  document.getElementById('statR2').textContent = data.model_accuracy + '%';
+  document.getElementById('infoR2').textContent = data.model_accuracy + '%';
+
+  // feature importance bars
+  const container = document.getElementById('fiContainer');
+  container.innerHTML = '';
+  const max = data.feature_importance[0].importance;
+  data.feature_importance.forEach(({feature, importance}) => {
+    const pct = ((importance / max) * 100).toFixed(1);
+    const name = feature.replace(/_/g,' ');
+    container.innerHTML += `
+      <div class="fi-bar">
+        <div class="fi-row">
+          <span class="fi-name">${name}</span>
+          <span class="fi-pct">${(importance*100).toFixed(1)}%</span>
+        </div>
+        <div class="fi-track"><div class="fi-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  });
+
+  card.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// ── Number counter animation ─────────────────────────────────────────────────
+function animateValue(id, from, to, dur, fmt) {
+  const el = document.getElementById(id);
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / dur, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(from + (to - from) * ease);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+</script>
+</body>
+</html>
